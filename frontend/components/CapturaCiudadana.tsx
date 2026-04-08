@@ -59,7 +59,7 @@ export default function CapturaCiudadana() {
 
       // 4. Enviar a nuestro Backend (Next.js API)
       try {
-        const respuesta = await fetch('/api/reportar', {
+        const respuesta = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_CLASIFICACION}/api/reportes/`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ fotoBase64, latitud: lat, longitud: lon, calle, fechaHora })

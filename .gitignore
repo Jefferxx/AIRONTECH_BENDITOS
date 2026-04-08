@@ -1,0 +1,9 @@
+.env
+.env.local
+frontend/.env.local
+backend/.env
+venv/
+*/venv/
+__pycache__/
+*/__pycache__/
+*.jpeg

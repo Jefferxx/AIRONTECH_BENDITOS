@@ -1,10 +1,11 @@
-import google.generativeai as genai
 import base64, json, re, hashlib, logging
+from google import genai
+from google.genai import types
 from config import GEMINI_API_KEY, TIPOS_VALIDOS, URGENCIAS
 
 logger = logging.getLogger(__name__)
-genai.configure(api_key=GEMINI_API_KEY)
-model = genai.GenerativeModel("gemini-1.5-flash")
+client = genai.Client(api_key=GEMINI_API_KEY)
+MODEL  = "gemini-2.5-flash-lite"
 
 # ── PROMPT: reporte ciudadano (foto de basura en la calle) ───────────────────
 PROMPT_REPORTE = """Eres un inspector ambiental experto del Municipio de Riobamba, Ecuador.
@@ -70,14 +71,12 @@ FALLBACK_DESCARGA = {
 
 # ── Helpers internos ─────────────────────────────────────────────────────────
 def _decode_image(image_b64: str) -> bytes:
-    """Acepta base64 con o sin prefijo data:image/...;base64,"""
     if "," in image_b64:
         image_b64 = image_b64.split(",")[1]
     return base64.b64decode(image_b64)
 
 
 def _extract_json(text: str) -> dict:
-    """Limpia la respuesta de Gemini y extrae el JSON."""
     text = re.sub(r"```(?:json)?", "", text).strip()
     match = re.search(r"\{.*\}", text, re.DOTALL)
     if not match:
@@ -86,6 +85,11 @@ def _extract_json(text: str) -> dict:
 
 
 def _validar_reporte(data: dict) -> bool:
+    # Normalizar acentos que Gemini a veces omite
+    tipo = data.get("tipo_residuo", "")
+    tipo = tipo.replace("Plastico", "Plástico").replace("Organico", "Orgánico")
+    data["tipo_residuo"] = tipo
+
     return (
         data.get("tipo_residuo") in TIPOS_VALIDOS
         and data.get("urgencia") in URGENCIAS
@@ -101,11 +105,10 @@ def _validar_descarga(data: dict) -> bool:
     if not all(k in data for k in keys):
         return False
     total = sum(data[k] for k in keys)
-    return 95 <= total <= 105  # tolerancia ±5 por redondeo de Gemini
+    return 95 <= total <= 105
 
 
 def _normalizar_descarga(data: dict) -> dict:
-    """Fuerza que los porcentajes sumen exactamente 100."""
     keys = ["pct_organico", "pct_plastico", "pct_escombros", "pct_mixto", "pct_peligroso"]
     total = sum(data[k] for k in keys)
     if total > 0:
@@ -116,7 +119,6 @@ def _normalizar_descarga(data: dict) -> dict:
 
 # ── API pública ───────────────────────────────────────────────────────────────
 def calcular_foto_hash(image_b64: str) -> str:
-    """MD5 de la imagen para detección de duplicados."""
     raw = _decode_image(image_b64)
     return hashlib.md5(raw).hexdigest()
 
@@ -124,15 +126,17 @@ def calcular_foto_hash(image_b64: str) -> str:
 def analizar_imagen_reporte(image_b64: str) -> tuple[dict, bool]:
     """
     Clasifica una foto de basura en la calle.
-    Retorna (resultado_dict, es_fallback).
-    Nunca lanza excepción — siempre retorna algo usable.
+    Retorna (resultado_dict, es_fallback). Nunca lanza excepción.
     """
     try:
         image_bytes = _decode_image(image_b64)
-        response = model.generate_content([
-            PROMPT_REPORTE,
-            {"mime_type": "image/jpeg", "data": image_bytes},
-        ])
+        response = client.models.generate_content(
+            model=MODEL,
+            contents=[
+                types.Part.from_text(text=PROMPT_REPORTE),
+                types.Part.from_bytes(data=image_bytes, mime_type="image/jpeg"),
+            ],
+        )
         data = _extract_json(response.text)
         if not _validar_reporte(data):
             logger.warning("Respuesta de Gemini inválida (reporte): %s", data)
@@ -146,15 +150,17 @@ def analizar_imagen_reporte(image_b64: str) -> tuple[dict, bool]:
 def analizar_imagen_descarga(image_b64: str) -> tuple[dict, bool]:
     """
     Clasifica la composición de una carga de camión.
-    Retorna (resultado_dict, es_fallback).
-    Nunca lanza excepción — siempre retorna algo usable.
+    Retorna (resultado_dict, es_fallback). Nunca lanza excepción.
     """
     try:
         image_bytes = _decode_image(image_b64)
-        response = model.generate_content([
-            PROMPT_DESCARGA,
-            {"mime_type": "image/jpeg", "data": image_bytes},
-        ])
+        response = client.models.generate_content(
+            model=MODEL,
+            contents=[
+                types.Part.from_text(text=PROMPT_DESCARGA),
+                types.Part.from_bytes(data=image_bytes, mime_type="image/jpeg"),
+            ],
+        )
         data = _extract_json(response.text)
         if not _validar_descarga(data):
             logger.warning("Respuesta de Gemini inválida (descarga): %s", data)

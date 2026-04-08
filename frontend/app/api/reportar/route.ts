@@ -3,10 +3,11 @@ import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
-// CLAVES QUEMADAS (Solo para la demo, luego las borras)
-const supabaseUrl = 'https://qwngrubkuakuuvhilvmi.supabase.co';
-const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF3bmdydWJrdWFrdXV2aGlsdm1pIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NTY1ODUyMCwiZXhwIjoyMDkxMjM0NTIwfQ.RzEqPzl_W71IqKuIFa7Y1R7_1WmV_gPWGfomExqOZU4';
-const geminiKey = 'AIzaSyBm4jZ_XsS--adeMjXy17gFGHiMhs8jUCk';
+// Consumiendo las variables de entorno de forma segura
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+// Usamos la Service Role Key para tener permisos de escritura en el servidor
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+const geminiKey = process.env.GEMINI_API_KEY!;
 
 const supabase = createClient(supabaseUrl, supabaseKey);
 const genAI = new GoogleGenerativeAI(geminiKey);

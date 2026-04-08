@@ -33,6 +33,7 @@ import {
   X
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { createClient } from '../utils/supabase/client';
 
 
 // --- Types ---
@@ -74,9 +75,37 @@ const Button = ({
 // --- Views ---
 
 const LandingView = ({ onLogin }: { onLogin: (view: View) => void }) => {
+  // Estados para el formulario
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState('');
+
+  const supabase = createClient();
+
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setErrorMsg('');
+
+    // Autenticación real con Supabase
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+
+    if (error) {
+      setErrorMsg('Credenciales incorrectas. Intenta de nuevo.');
+      setLoading(false);
+    } else {
+      // ¡Éxito! Entramos a la vista de ciudadano por defecto
+      onLogin('citizen');
+    }
+  };
+
   return (
     <div className="min-h-screen flex flex-col md:flex-row">
-      {/* Left Column */}
+      {/* Left Column (Se mantiene igual) */}
       <section className="relative w-full md:w-3/5 min-h-[512px] md:min-h-screen flex items-center justify-center p-8 md:p-16 overflow-hidden">
         <div className="absolute inset-0 bg-primary/90 z-0" />
         <img 
@@ -120,29 +149,50 @@ const LandingView = ({ onLogin }: { onLogin: (view: View) => void }) => {
         </div>
       </section>
 
-      {/* Right Column */}
+      {/* Right Column (Formulario de Login Actualizado) */}
       <section className="w-full md:w-2/5 flex flex-col justify-center bg-surface-container-low px-8 py-16 md:px-16">
         <div className="max-w-md mx-auto w-full">
           <div className="mb-10">
             <h2 className="font-headline text-3xl font-extrabold text-on-surface mb-2">Bienvenido</h2>
             <p className="text-on-surface-variant font-medium">Ingresa a la plataforma de gestión municipal.</p>
           </div>
-          <form className="space-y-6 mb-12" onSubmit={(e) => e.preventDefault()}>
+          
+          <form className="space-y-6 mb-12" onSubmit={handleLogin}>
             <div>
               <label className="block font-label text-sm font-bold text-on-surface mb-2">Correo Electrónico</label>
-              <input className="w-full bg-surface-container-lowest border-none rounded-lg p-4 text-on-surface placeholder:text-outline shadow-sm focus:ring-2 focus:ring-primary" placeholder="ejemplo@riobamba.gob.ec" type="email" />
+              <input 
+                className="w-full bg-surface-container-lowest border-none rounded-lg p-4 text-on-surface placeholder:text-outline shadow-sm focus:ring-2 focus:ring-primary" 
+                placeholder="ejemplo@riobamba.gob.ec" 
+                type="email" 
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+              />
             </div>
             <div>
               <label className="block font-label text-sm font-bold text-on-surface mb-2">Contraseña</label>
-              <input className="w-full bg-surface-container-lowest border-none rounded-lg p-4 text-on-surface placeholder:text-outline shadow-sm focus:ring-2 focus:ring-primary" placeholder="••••••••" type="password" />
+              <input 
+                className="w-full bg-surface-container-lowest border-none rounded-lg p-4 text-on-surface placeholder:text-outline shadow-sm focus:ring-2 focus:ring-primary" 
+                placeholder="••••••••" 
+                type="password" 
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+              />
             </div>
-            <Button className="w-full py-4 text-lg" onClick={() => onLogin('citizen')}>Ingresar</Button>
+            
+            {/* Mensaje de error dinámico */}
+            {errorMsg && <p className="text-error text-sm font-bold animate-pulse">{errorMsg}</p>}
+            
+            <Button className="w-full py-4 text-lg" onClick={() => {}}>
+              {loading ? 'Verificando...' : 'Ingresar'}
+            </Button>
           </form>
 
           <div className="relative mb-8">
             <div className="absolute inset-0 flex items-center"><span className="w-full border-t border-outline-variant opacity-20"></span></div>
             <div className="relative flex justify-center text-xs uppercase tracking-widest font-bold text-outline">
-              <span className="bg-surface-container-low px-4">Acceso Rápido Demo</span>
+              <span className="bg-surface-container-low px-4">Acceso Rápido Demo (Hackathon)</span>
             </div>
           </div>
 
@@ -154,6 +204,7 @@ const LandingView = ({ onLogin }: { onLogin: (view: View) => void }) => {
             ].map((item) => (
               <button 
                 key={item.view}
+                type="button"
                 onClick={() => onLogin(item.view as View)}
                 className="w-full flex items-center justify-between p-4 bg-surface-container-lowest rounded-xl border border-transparent hover:border-primary/20 hover:bg-primary-fixed-dim/10 transition-all group"
               >
@@ -225,7 +276,7 @@ const CitizenView = () => {
     // 2. Sacamos GPS y mandamos al Backend
     navigator.geolocation.getCurrentPosition(async (position) => {
       try {
-        const respuesta = await fetch('/api/reportar', {
+        const respuesta = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_CLASIFICACION}/api/reportes/`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
