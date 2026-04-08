@@ -397,121 +397,142 @@ const CitizenView = () => {
 };
 
 const WorkerView = () => {
+  const [tareas, setTareas] = useState<any[]>([]);
+  const [cargando, setCargando] = useState(true);
+
+  // --- CONEXIÓN DIRECTA A SUPABASE (Hackathon Mode) ---
+  useEffect(() => {
+    const cargarTareas = async () => {
+      try {
+        const supabaseUrl = 'https://qwngrubkuakuuvhilvmi.supabase.co';
+        const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF3bmdydWJrdWFrdXV2aGlsdm1pIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NTY1ODUyMCwiZXhwIjoyMDkxMjM0NTIwfQ.RzEqPzl_W71IqKuIFa7Y1R7_1WmV_gPWGfomExqOZU4';
+        const supabase = createClient(supabaseUrl, supabaseKey);
+
+        // Traemos todos los reportes ordenados por los más recientes
+        const { data, error } = await supabase
+          .from('reportes')
+          .select('*')
+          .order('timestamp', { ascending: false });
+
+        if (error) throw error;
+        setTareas(data || []);
+      } catch (error) {
+        console.error("Error cargando tareas:", error);
+      } finally {
+        setCargando(false);
+      }
+    };
+
+    cargarTareas();
+  }, []);
+
   return (
-    <div className="max-w-md mx-auto pb-24">
-      <section className="px-6 py-6 bg-surface-container-low">
+    <div className="max-w-md mx-auto pb-24 space-y-6 pt-4">
+      <section className="px-6 py-4 bg-surface-container-low rounded-xl mx-4 shadow-sm">
         <div className="flex justify-between items-start mb-4">
           <div>
             <p className="text-on-surface-variant font-label text-xs uppercase tracking-widest mb-1">Operativo en curso</p>
-            <h1 className="text-2xl font-extrabold text-on-surface leading-tight tracking-tight font-headline">Turno mañana — Carlos Méndez</h1>
+            <h1 className="text-2xl font-extrabold text-on-surface leading-tight tracking-tight font-headline">Ruta Sur — RG-402</h1>
           </div>
           <div className="bg-tertiary-fixed text-on-tertiary-fixed-variant px-3 py-1 rounded-sm text-xs font-bold font-label flex items-center gap-1">
-            <ArrowRightLeft className="w-3 h-3" /> Recolector
-          </div>
-        </div>
-        <div className="flex items-center gap-3">
-          <span className="inline-flex items-center gap-1.5 bg-secondary-container text-on-secondary-container px-3 py-1.5 rounded-xl text-sm font-bold shadow-sm">
-            <span className="w-2 h-2 rounded-full bg-primary animate-pulse"></span>
-            2 paradas activas
-          </span>
-          <span className="text-on-surface-variant text-sm font-medium flex items-center gap-1">
-            <Truck className="w-4 h-4" /> Camión #RG-402
-          </span>
-        </div>
-      </section>
-
-      <section className="px-4 py-4">
-        <div className="relative w-full h-56 rounded-xl overflow-hidden shadow-sm bg-surface-container">
-          <img 
-            src="https://lh3.googleusercontent.com/aida-public/AB6AXuCzQ_rp50mamaMHDgkfqm7erKzM5ZO1s2NkmJJNVwf0R5oVI55hqqDxOl9vp2KUticT9QVY-JY74QEZ75LhUr7ahywFllb7gPzxj01pmc3r62jwOzakJIf8Ky0lFzk9O_HYL4jwXCftUYW1K6jV--1Y62YpGOACu_KHBszgw-N28riUysbxMLhXtTlDkWMKQeoNo9C461LSTPckDYU016Tldh_wYc99ZUH4P3kpT2E2gAipWm9eA6cklViBjUEhzu6dtxr84mbbYa2O" 
-            alt="Map" 
-            className="w-full h-full object-cover mix-blend-multiply opacity-50"
-            referrerPolicy="no-referrer"
-          />
-          <div className="absolute top-3 right-3 flex flex-col gap-2">
-            <button className="w-10 h-10 bg-white/80 backdrop-blur-md rounded-lg flex items-center justify-center shadow-sm text-primary"><Navigation className="w-5 h-5" /></button>
-            <button className="w-10 h-10 bg-white/80 backdrop-blur-md rounded-lg flex items-center justify-center shadow-sm text-primary"><MapIcon className="w-5 h-5" /></button>
-          </div>
-          <div className="absolute bottom-3 left-3 bg-white/90 backdrop-blur-md px-3 py-1.5 rounded-lg shadow-sm border border-white/20">
-            <span className="font-label text-xs font-bold text-primary">Ruta: NORTE-04 (Prioritaria)</span>
+            <Truck className="w-4 h-4" /> Activo
           </div>
         </div>
       </section>
 
       <section className="px-4 space-y-4">
-        <h2 className="px-2 text-on-surface-variant font-label text-xs uppercase tracking-widest font-bold">Tareas Pendientes</h2>
+        <div className="flex justify-between items-center px-2">
+          <h2 className="text-on-surface-variant font-label text-xs uppercase tracking-widest font-bold">
+            Tareas Pendientes ({tareas.length})
+          </h2>
+          <button className="text-xs text-primary font-bold">Actualizar GPS</button>
+        </div>
         
-        <div className="bg-surface-container-lowest rounded-xl shadow-sm border-l-4 border-error overflow-hidden">
-          <div className="p-4">
-            <div className="flex justify-between items-start mb-3">
-              <div>
-                <span className="font-label text-[10px] text-on-surface-variant uppercase font-bold tracking-tighter block mb-1">Parada #124</span>
-                <h3 className="font-headline font-extrabold text-lg leading-none">Sector Bellavista</h3>
-              </div>
-              <span className="bg-error-container text-on-error-container px-2 py-0.5 rounded-sm text-[10px] font-bold font-label uppercase">Alta Prioridad</span>
-            </div>
-            <div className="grid grid-cols-2 gap-4 mb-4">
-              <div className="flex items-center gap-2">
-                <Trash2 className="text-primary w-5 h-5" />
-                <div>
-                  <p className="text-[10px] text-on-surface-variant font-medium">Tipo</p>
-                  <p className="text-sm font-bold">Orgánico</p>
+        {cargando ? (
+          <p className="text-center text-sm text-gray-500 py-10">Sincronizando ruta...</p>
+        ) : tareas.length === 0 ? (
+          <p className="text-center text-sm text-gray-500 py-10">No hay reportes asignados.</p>
+        ) : (
+          tareas.map((tarea, index) => (
+            <div key={tarea.id || index} className={`bg-surface-container-lowest rounded-xl shadow-sm border-l-4 overflow-hidden mb-4 ${tarea.urgencia === 'Alta' ? 'border-error' : 'border-primary'}`}>
+              <div className="p-4">
+                <div className="flex justify-between items-start mb-3">
+                  <div>
+                    <span className="font-label text-[10px] text-on-surface-variant uppercase font-bold tracking-tighter block mb-1">
+                      Reporte #{tarea.id || 'Nuevo'}
+                    </span>
+                    <h3 className="font-headline font-extrabold text-lg leading-none">{tarea.sector}</h3>
+                  </div>
+                  <span className={`${tarea.urgencia === 'Alta' ? 'bg-error-container text-on-error-container' : 'bg-primary-container text-on-primary-container'} px-2 py-0.5 rounded-sm text-[10px] font-bold font-label uppercase`}>
+                    Urgencia: {tarea.urgencia || 'Media'}
+                  </span>
                 </div>
-              </div>
-              <div className="flex items-center gap-2">
-                <Weight className="text-primary w-5 h-5" />
-                <div>
-                  <p className="text-[10px] text-on-surface-variant font-medium">Est. KG</p>
-                  <p className="text-sm font-bold font-label">450 kg</p>
-                </div>
-              </div>
-            </div>
-            <div className="flex items-start gap-2 mb-4 bg-surface-container-low p-2 rounded-lg">
-              <MapIcon className="text-on-surface-variant w-4 h-4 mt-0.5" />
-              <p className="text-xs text-on-surface-variant leading-snug">Av. Unidad Nacional y Veloz (Esquina Noroeste)</p>
-            </div>
-            <Button className="w-full py-3"><CheckCircle2 className="w-4 h-4" /> Marcar como atendido</Button>
-          </div>
-        </div>
 
-        <div className="bg-surface-container-lowest rounded-xl shadow-sm border-l-4 border-tertiary overflow-hidden opacity-90">
-          <div className="p-4">
-            <div className="flex justify-between items-start mb-3">
-              <div>
-                <span className="font-label text-[10px] text-on-surface-variant uppercase font-bold tracking-tighter block mb-1">Parada #125</span>
-                <h3 className="font-headline font-extrabold text-lg leading-none">Lomas de Riobamba</h3>
-              </div>
-              <span className="bg-tertiary-fixed text-on-tertiary-fixed-variant px-2 py-0.5 rounded-sm text-[10px] font-bold font-label uppercase">Media</span>
-            </div>
-            <div className="grid grid-cols-2 gap-4 mb-4">
-              <div className="flex items-center gap-2">
-                <Recycle className="text-primary w-5 h-5" />
-                <div>
-                  <p className="text-[10px] text-on-surface-variant font-medium">Tipo</p>
-                  <p className="text-sm font-bold">Plásticos</p>
+                {/* FOTO QUE TOMÓ EL CIUDADANO */}
+                {tarea.imagen_url && (
+                  <div className="w-full h-32 mb-4 rounded-lg overflow-hidden border border-gray-200">
+                    <img src={tarea.imagen_url} alt="Reporte" className="w-full h-full object-cover" />
+                  </div>
+                )}
+
+                <div className="grid grid-cols-2 gap-4 mb-4">
+                  <div className="flex items-center gap-2">
+                    <Trash2 className="text-primary w-5 h-5" />
+                    <div>
+                      <p className="text-[10px] text-on-surface-variant font-medium">Tipo (IA)</p>
+                      <p className="text-sm font-bold truncate">{tarea.tipo_residuo || 'No clasificado'}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Weight className="text-primary w-5 h-5" />
+                    <div>
+                      <p className="text-[10px] text-on-surface-variant font-medium">Est. KG</p>
+                      <p className="text-sm font-bold font-label">{tarea.peso_estimado_kg || 0} kg</p>
+                    </div>
+                  </div>
                 </div>
-              </div>
-              <div className="flex items-center gap-2">
-                <Weight className="text-primary w-5 h-5" />
-                <div>
-                  <p className="text-[10px] text-on-surface-variant font-medium">Est. KG</p>
-                  <p className="text-sm font-bold font-label">120 kg</p>
+
+                <div className="flex items-start gap-2 mb-4 bg-surface-container-low p-2 rounded-lg">
+                  <MapIcon className="text-on-surface-variant w-4 h-4 mt-0.5" />
+                  <p className="text-xs text-on-surface-variant leading-snug">
+                    Coords: {tarea.lat ? tarea.lat.toFixed(4) : 'N/A'}, {tarea.lng ? tarea.lng.toFixed(4) : 'N/A'}
+                  </p>
                 </div>
+                
+                <Button className="w-full py-3">
+                  <CheckCircle2 className="w-4 h-4" /> Marcar como recolectado
+                </Button>
+                {/* Coordenadas actuales (puedes dejarlo o borrarlo, pero abajo van los botones) */}
+                <div className="flex items-start gap-2 mb-4 bg-surface-container-low p-2 rounded-lg">
+                  <MapIcon className="text-on-surface-variant w-4 h-4 mt-0.5" />
+                  <p className="text-xs text-on-surface-variant leading-snug">
+                    Coords: {tarea.lat ? tarea.lat.toFixed(4) : 'N/A'}, {tarea.lng ? tarea.lng.toFixed(4) : 'N/A'}
+                  </p>
+                </div>
+                
+                {/* 👇 NUEVOS BOTONES DE ACCIÓN (NAVEGAR Y RECOLECTAR) 👇 */}
+                <div className="flex flex-col gap-2 mt-4">
+                  <Button 
+                    variant="outline"
+                    className="w-full py-3 bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100 flex justify-center items-center gap-2"
+                    onClick={() => {
+                      // Esto abre Google Maps en una nueva pestaña con la ruta en auto
+                      window.open(`https://www.google.com/maps/dir/?api=1&destination=${tarea.lat},${tarea.lng}&travelmode=driving`, '_blank');
+                    }}
+                  >
+                    <Navigation className="w-4 h-4" /> Iniciar Ruta en Google Maps
+                  </Button>
+
+                  <Button className="w-full py-3 bg-black text-white flex justify-center items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4" /> Marcar como recolectado
+                  </Button>
+                </div>
+                {/* 👆 FIN NUEVOS BOTONES 👆 */}
               </div>
             </div>
-            <div className="flex items-start gap-2 mb-4 bg-surface-container-low p-2 rounded-lg">
-              <MapIcon className="text-on-surface-variant w-4 h-4 mt-0.5" />
-              <p className="text-xs text-on-surface-variant leading-snug">Calle Primera Constituyente y Carabobo</p>
-            </div>
-            <Button variant="outline" className="w-full py-3 opacity-50 cursor-not-allowed">Siguiente en ruta</Button>
-          </div>
-        </div>
+          ))
+        )}
       </section>
-
-      <Button variant="secondary" className="fixed bottom-20 right-6 z-50 h-16 px-6 rounded-xl shadow-2xl border-2 border-white/20">
-        <Upload className="w-6 h-6" />
-        <span className="uppercase font-label tracking-wider text-sm">Registrar descarga</span>
-      </Button>
     </div>
   );
 };
