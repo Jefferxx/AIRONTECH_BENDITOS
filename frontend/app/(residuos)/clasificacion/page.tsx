@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 interface ClassificationResult {
@@ -16,25 +16,55 @@ export default function WasteClassificationPage() {
     description: "Este residuo es plástico PET, reciclable en contenedores amarillos."
   });
 
+  // Referencias al video y canvas
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  // IP de la cámara IP Webcam
+  const IP_CAM_URL = "http://172.25.221.29:8080/video";
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (videoRef.current && canvasRef.current) {
+        const ctx = canvasRef.current.getContext("2d");
+        if (!ctx) return;
+
+        // Dibuja el frame actual del video en el canvas
+        ctx.drawImage(videoRef.current, 0, 0, canvasRef.current.width, canvasRef.current.height);
+
+        // Extraer datos de la imagen (ImageData) si quieres procesarlos
+        const frame = ctx.getImageData(0, 0, canvasRef.current.width, canvasRef.current.height);
+        // frame.data → array RGBA que puedes enviar a tu modelo
+      }
+    }, 100); // ~10 FPS
+
+    return () => clearInterval(interval);
+  }, []);
+
   return (
     <div className="p-4 md:p-8 flex flex-col gap-8 max-w-6xl mx-auto">
-      {/* Título usando la clase semántica .h1 del global.css */}
+      {/* Título */}
       <h1 className="h1 text-center text-foreground">
         Clasificación de Residuos
       </h1>
 
       <div className="flex flex-col md:flex-row gap-8">
-        {/* Sección de la Cámara / Visualizador */}
-        <div className="md:w-1/2 h-64 md:h-[450px] bg-muted border-2 border-dashed border-border rounded-2xl flex flex-col items-center justify-center transition-colors hover:bg-accent/50 group">
-          <div className="flex flex-col items-center gap-2">
-            {/* Usamos el color brand-1 para el icono o texto de estado */}
-            <div className="w-12 h-12 rounded-full bg-brand-1/10 flex items-center justify-center">
-               <div className="w-3 h-3 rounded-full bg-brand-1 animate-pulse" />
-            </div>
-            <span className="small text-muted-foreground group-hover:text-brand-1 transition-colors">
-              Esperando señal de cámara...
-            </span>
-          </div>
+        {/* Cámara IP */}
+        <div className="md:w-1/2 h-64 md:h-[450px] bg-muted border-2 border-dashed border-border rounded-2xl flex items-center justify-center overflow-hidden">
+          <video
+            ref={videoRef}
+            src={IP_CAM_URL}
+            autoPlay
+            muted
+            playsInline
+            className="hidden"
+          />
+          <canvas
+            ref={canvasRef}
+            width={640}
+            height={480}
+            className="w-full h-full object-cover"
+          />
         </div>
 
         {/* Sección de información (Card) */}
@@ -44,7 +74,7 @@ export default function WasteClassificationPage() {
               Detalle de Clasificación
             </CardTitle>
           </CardHeader>
-          
+
           <CardContent className="flex flex-col gap-6 pt-6">
             <div className="space-y-1">
               <p className="xs uppercase tracking-wider text-muted-foreground font-semibold">Tipo de Residuo</p>
@@ -54,7 +84,6 @@ export default function WasteClassificationPage() {
             <div className="space-y-1">
               <p className="xs uppercase tracking-wider text-muted-foreground font-semibold">Nivel de Confianza</p>
               <div className="flex items-center gap-3">
-                {/* Barra de progreso simple con el color de marca */}
                 <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
                   <div 
                     className="h-full bg-brand-1 transition-all duration-500" 
