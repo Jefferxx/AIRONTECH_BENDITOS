@@ -1,4 +1,3 @@
-// frontend/components/CapturaCiudadana.tsx
 'use client';
 
 import { useRef, useState, useEffect } from 'react';
@@ -6,7 +5,7 @@ import { obtenerDireccion } from '@/lib/geoUtils';
 import { useRouter } from 'next/navigation';
 
 export default function CapturaCiudadana() {
-  const router = useRouter(); // <-- Agrega esta línea aquí
+  const router = useRouter();
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [stream, setStream] = useState<MediaStream | null>(null);
@@ -18,7 +17,9 @@ export default function CapturaCiudadana() {
   useEffect(() => {
     async function activarCamara() {
       try {
-        const mediaStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+        const mediaStream = await navigator.mediaDevices.getUserMedia({ 
+          video: { facingMode: 'environment' } 
+        });
         setStream(mediaStream);
         if (videoRef.current) {
           videoRef.current.srcObject = mediaStream;
@@ -31,7 +32,6 @@ export default function CapturaCiudadana() {
     }
     activarCamara();
     return () => {
-      // Apagar cámara al salir
       if (stream) stream.getTracks().forEach(track => track.stop());
     };
   }, []);
@@ -45,29 +45,46 @@ export default function CapturaCiudadana() {
     canvasRef.current.width = videoRef.current.videoWidth;
     canvasRef.current.height = videoRef.current.videoHeight;
     context?.drawImage(videoRef.current, 0, 0);
-    const fotoBase64 = canvasRef.current.toDataURL('image/jpeg');
+    
+    // Comprimimos un poco para evitar payloads gigantes
+    const fotoBase64 = canvasRef.current.toDataURL('image/jpeg', 0.7);
     setFoto(fotoBase64);
 
     // 2. Obtener GPS
     navigator.geolocation.getCurrentPosition(async (position) => {
       const lat = position.coords.latitude;
       const lon = position.coords.longitude;
+      const accuracy = position.coords.accuracy || 0;
       
       // 3. Obtener Calle (Reverse Geocoding)
       const calle = await obtenerDireccion(lat, lon);
-      const fechaHora = new Date().toISOString();
 
-      // 4. Enviar a nuestro Backend (Next.js API)
+      // 4. Enviar a FastAPI (Clasificación de Imágenes)
       try {
         const respuesta = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_CLASIFICACION}/api/reportes/`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ fotoBase64, latitud: lat, longitud: lon, calle, fechaHora })
+          body: JSON.stringify({ 
+            image_b64: fotoBase64,      // Sincronizado con ReporteCreate
+            lat: lat,                   // Sincronizado
+            lng: lon,                   // Sincronizado
+            sector: calle || "Sector Riobamba", // Sincronizado
+            es_contenedor_lleno: false, // Requerido por el esquema
+            accuracy_gps: accuracy      // Requerido por el esquema
+          })
         });
+
         const data = await respuesta.json();
-        setResultado(data);
-        setEstado('completado');
+
+        if (respuesta.ok) {
+          setResultado(data);
+          setEstado('completado');
+        } else {
+          console.error("Error del backend:", data.detail);
+          setEstado('error');
+        }
       } catch (error) {
+        console.error("Error de red:", error);
         setEstado('error');
       }
     }, (error) => {
@@ -95,30 +112,45 @@ export default function CapturaCiudadana() {
       )}
 
       {estado === 'procesando' && (
-        <div className="text-blue-600 font-semibold animate-pulse">
-          Analizando imagen con IA y triangulando GPS...
+        <div className="text-blue-600 font-semibold animate-pulse flex flex-col items-center gap-2">
+          <span>Analizando imagen con IA...</span>
+          <span className="text-xs">Triangulando GPS en Riobamba</span>
         </div>
       )}
 
       {estado === 'completado' && resultado && (
-        <div className="w-full bg-white p-4 rounded-lg border border-green-200 mt-2 text-sm">
-          <p className="text-green-600 font-bold mb-2">✅ ¡Reporte Enviado!</p>
-          <p><strong>Ubicación:</strong> {resultado.datosRecibidos.calle}</p>
-          <hr className="my-2" />
-          <p className="text-blue-800 font-bold">🚛 Acción del Municipio:</p>
-          <p>{resultado.asignacion.mensajeRuta}</p>
-          <p className="text-xs text-gray-500 mt-1">Distancia al camión: {resultado.asignacion.distanciaKm} km</p>
+        <div className="w-full bg-white p-4 rounded-lg border-l-4 border-green-500 mt-2 text-sm shadow-sm">
+          <p className="text-green-600 font-bold mb-2 flex items-center gap-2">
+            ✅ ¡Reporte Confirmado!
+          </p>
+          <div className="space-y-1 text-gray-700">
+            <p><strong>ID:</strong> #{resultado.id}</p>
+            <p><strong>Ubicación:</strong> {resultado.sector}</p>
+            <p><strong>IA Detectó:</strong> {resultado.tipo_residuo}</p>
+            <p><strong>Urgencia:</strong> <span className={resultado.urgencia === 'Alta' ? 'text-red-600 font-bold' : ''}>{resultado.urgencia}</span></p>
+          </div>
+          <hr className="my-3" />
+          <p className="text-blue-800 font-medium">🚛 Estado: <span className="capitalize">{resultado.estado}</span></p>
+          <p className="text-[10px] text-gray-400 mt-1 italic">Datos guardados en Supabase mediante EcoRuta Engine.</p>
+          
           <button 
-            onClick={() => router.push('/clasificacion')} 
-            className="mt-4 w-full bg-gray-200 hover:bg-gray-300 text-gray-800 py-3 rounded-lg font-bold transition"
+            onClick={() => {
+              setFoto(null);
+              setEstado('listo');
+              setResultado(null);
+            }} 
+            className="mt-4 w-full bg-gray-100 hover:bg-gray-200 text-gray-800 py-3 rounded-lg font-bold transition"
           >
-            Volver al Escáner
+            Nueva Captura
           </button>
         </div>
       )}
 
       {estado === 'error' && (
-        <p className="text-red-500 font-bold">Ocurrió un error al acceder a la cámara o red.</p>
+        <div className="text-center">
+          <p className="text-red-500 font-bold mb-2">Ocurrió un error al procesar el reporte.</p>
+          <button onClick={() => setEstado('listo')} className="text-primary text-sm underline">Reintentar</button>
+        </div>
       )}
     </div>
   );
