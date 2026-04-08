@@ -1,5 +1,5 @@
 'use client';
-
+import React, { useState, useRef, useEffect } from 'react';
 import { 
   Recycle, 
   Bell, 
@@ -33,7 +33,7 @@ import {
   X
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import React, { useState } from 'react';
+
 
 // --- Types ---
 type View = 'landing' | 'citizen' | 'worker' | 'admin' | 'supervisor';
@@ -177,115 +177,170 @@ const LandingView = ({ onLogin }: { onLogin: (view: View) => void }) => {
 };
 
 const CitizenView = () => {
+  // --- REFERENCIAS DE LA CÁMARA ---
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [stream, setStream] = useState<MediaStream | null>(null);
+  
+  // --- ESTADOS ---
+  const [fotoBase64, setFotoBase64] = useState<string | null>(null);
+  const [sector, setSector] = useState('La Condamine');
+  const [descripcion, setDescripcion] = useState('');
+  const [estaLleno, setEstaLleno] = useState(false);
+  const [cargandoIA, setCargandoIA] = useState(false);
+  const [resultadoBackend, setResultadoBackend] = useState<any>(null);
+
+  // --- ENCENDER LA CÁMARA AL ENTRAR A ESTA VISTA ---
+  useEffect(() => {
+    async function activarCamara() {
+      try {
+        const mediaStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+        setStream(mediaStream);
+        if (videoRef.current) videoRef.current.srcObject = mediaStream;
+      } catch (err) {
+        console.error("Error cámara:", err);
+      }
+    }
+    activarCamara();
+    return () => { // Apagar cámara al salir
+      if (stream) stream.getTracks().forEach(track => track.stop());
+    };
+  }, []);
+
+  // --- LA MAGIA: TOMAR FOTO + GPS + BACKEND ---
+  const enviarReporteBackend = async () => {
+    if (!videoRef.current || !canvasRef.current) return alert("Cámara no lista");
+    
+    setCargandoIA(true);
+
+    // 1. Capturamos la foto de la cámara en vivo
+    const context = canvasRef.current.getContext('2d');
+    canvasRef.current.width = videoRef.current.videoWidth;
+    canvasRef.current.height = videoRef.current.videoHeight;
+    context?.drawImage(videoRef.current, 0, 0);
+    // Comprimimos la foto al 30% de calidad para que no reviente el servidor
+    const base64Capturado = canvasRef.current.toDataURL('image/jpeg', 0.3);
+    setFotoBase64(base64Capturado); // Mostramos la foto congelada
+
+    // 2. Sacamos GPS y mandamos al Backend
+    navigator.geolocation.getCurrentPosition(async (position) => {
+      try {
+        const respuesta = await fetch('/api/reportar', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            fotoBase64: base64Capturado,
+            latitud: position.coords.latitude,
+            longitud: position.coords.longitude,
+            calle: sector
+          })
+        });
+
+        const data = await respuesta.json();
+
+        if (data.success) {
+           setResultadoBackend(data); // Mostramos la tarjeta de éxito
+           setDescripcion('');
+           setEstaLleno(false);
+        } else {
+           alert("❌ Error del servidor: " + data.error);
+        }
+      } catch (error) {
+        alert("❌ Error de red al contactar al servidor.");
+      } finally {
+        setCargandoIA(false);
+      }
+    }, (error) => {
+      alert("⚠️ Activa el GPS para reportar.");
+      setCargandoIA(false);
+    }, { enableHighAccuracy: true });
+  };
+
   return (
     <div className="max-w-md mx-auto p-4 pb-24 space-y-6">
       <header className="mt-4">
         <h1 className="text-2xl font-headline font-extrabold tracking-tight text-primary">Reportar Incidencia</h1>
-        <p className="text-sm text-on-surface-variant">Ayúdanos a mantener Riobamba limpia reportando desechos acumulados.</p>
+        <p className="text-sm text-on-surface-variant">Captura en vivo y triangulación GPS.</p>
       </header>
 
       <div className="bg-surface-container-lowest rounded-xl p-5 shadow-sm space-y-5">
+        
+        {/* LA CÁMARA REAL INYECTADA EN EL DISEÑO */}
         <div className="relative group">
-          <div className="border-2 border-dashed border-outline-variant rounded-xl p-8 flex flex-col items-center justify-center bg-surface-container-low hover:bg-surface-container transition-colors cursor-pointer aspect-video overflow-hidden">
-            <img 
-              src="https://lh3.googleusercontent.com/aida-public/AB6AXuDDCGaiydm0aB9kSkaaNiXQWduguLHtNcM_5D5ZMyiQiSCuyLtbkxXFXuqUDeUJ3DrDqkX0rF1aBETTC6wdsEhfYcPG1tn10XAUdGP8OxgQN5wNl-Zh4zDtKidSpQq4lQIxh52C1db7bmDBelPzML7RGvm6zQOX1lT9YDUbcMDlEP10fhhouUJCzTjiQZhigLv21cnqET43CB32cWO0i5ThPjCHzpp3Il7SJtb3pvZuMSc_jQsxRog8CR0zj6CPjJZRhPQthmxB3UT1" 
-              alt="Waste" 
-              className="absolute inset-0 w-full h-full object-cover opacity-20 group-hover:opacity-40 transition-opacity"
-              referrerPolicy="no-referrer"
-            />
-            <Camera className="w-10 h-10 text-outline mb-2" />
-            <p className="text-xs font-medium text-on-surface-variant">Arrastra una foto o haz clic para subir</p>
+          <div className="border-2 border-dashed border-outline-variant rounded-xl flex flex-col items-center justify-center bg-black transition-colors aspect-video overflow-hidden relative">
+            {!fotoBase64 ? (
+               <video ref={videoRef} autoPlay playsInline className="absolute inset-0 w-full h-full object-cover" />
+            ) : (
+               <img src={fotoBase64} alt="Captura" className="absolute inset-0 w-full h-full object-cover" />
+            )}
+            <canvas ref={canvasRef} className="hidden" />
           </div>
+          {fotoBase64 && (
+            <button onClick={() => setFotoBase64(null)} className="mt-2 text-xs text-primary font-bold w-full text-center">
+              🔄 Tomar otra foto
+            </button>
+          )}
         </div>
 
+        {/* FORMULARIO */}
         <div className="space-y-4">
           <div className="flex flex-col gap-1.5">
             <label className="text-xs font-bold font-label uppercase tracking-wider text-outline">Sector de Riobamba</label>
-            <select className="w-full bg-surface-container-low border-none rounded-lg text-sm p-3 focus:ring-primary">
+            <select value={sector} onChange={(e) => setSector(e.target.value)} className="w-full bg-surface-container-low border-none rounded-lg text-sm p-3">
               <option>La Condamine</option>
               <option>Centro Histórico</option>
               <option>Lizarzaburu</option>
-              <option>Veloz</option>
-              <option>Maldonado</option>
+              <option>Terminal Terrestre</option>
             </select>
           </div>
           <div className="flex flex-col gap-1.5">
-            <label className="text-xs font-bold font-label uppercase tracking-wider text-outline">Descripción</label>
-            <textarea className="w-full bg-surface-container-low border-none rounded-lg text-sm p-3 h-24 focus:ring-primary" placeholder="Detalla el problema..."></textarea>
+            <label className="text-xs font-bold font-label uppercase tracking-wider text-outline">Descripción (Opcional)</label>
+            <textarea value={descripcion} onChange={(e) => setDescripcion(e.target.value)} className="w-full bg-surface-container-low border-none rounded-lg text-sm p-3 h-20" placeholder="Detalla el problema..."></textarea>
           </div>
-          <label className="flex items-center gap-3 p-3 bg-surface-container-low rounded-lg cursor-pointer">
-            <input className="w-5 h-5 rounded border-outline-variant text-primary focus:ring-primary" type="checkbox" />
-            <span className="text-sm font-medium">¿El contenedor está lleno?</span>
-          </label>
         </div>
 
+        {/* BOTONES */}
         <div className="grid grid-cols-2 gap-3 pt-2">
-          <Button variant="outline"><Navigation className="w-4 h-4" /> Ubicación</Button>
-          <Button variant="primary"><Sparkles className="w-4 h-4" /> Analizar IA</Button>
+          <Button variant="outline"><Navigation className="w-4 h-4" /> GPS Activo</Button>
+          <Button variant="primary" onClick={enviarReporteBackend}>
+            <Sparkles className="w-4 h-4" /> 
+            {cargandoIA ? 'Procesando...' : 'Tomar Foto y Analizar'}
+          </Button>
         </div>
       </div>
 
-      <section className="space-y-3">
-        <h2 className="text-xs font-bold font-label uppercase tracking-widest text-outline px-1">Resultado de Análisis IA</h2>
-        <div className="bg-white rounded-xl p-5 shadow-lg border-l-4 border-error relative overflow-hidden">
-          <div className="absolute -right-4 -top-4 opacity-5 pointer-events-none">
-            <Brain className="w-24 h-24" />
+      {/* RESULTADO DINÁMICO DEL BACKEND */}
+      {resultadoBackend && (
+        <div className="bg-white rounded-xl p-5 shadow-lg border-l-4 border-primary animate-in fade-in slide-in-from-bottom-4">
+          <div className="flex items-center gap-2 mb-4 border-b border-gray-100 pb-3">
+            <CheckCircle2 className="w-6 h-6 text-primary" />
+            <h2 className="text-sm font-bold uppercase tracking-widest text-primary">Reporte Confirmado</h2>
           </div>
-          <div className="flex justify-between items-start mb-4">
-            <div>
-              <p className="text-xs font-label text-outline leading-none mb-1">Residuo detectado</p>
-              <p className="text-lg font-headline font-bold text-primary">Plástico / PET</p>
+          
+          <div className="space-y-3">
+            <div className="flex justify-between items-center">
+              <span className="text-xs font-label text-outline uppercase">IA Detectó:</span>
+              <span className="text-lg font-headline font-bold text-gray-800">{resultadoBackend.analisisIA}</span>
             </div>
-            <span className="bg-error-container text-on-error-container text-[10px] font-bold px-2 py-1 rounded-sm uppercase tracking-wider">Urgencia: Alta</span>
+            
+            <div className="grid grid-cols-2 gap-4 mt-2">
+              <div className="bg-surface-container-low p-3 rounded-lg">
+                <p className="text-[10px] font-label text-outline uppercase">Camión Asignado</p>
+                <p className="text-sm font-bold font-label text-primary">{resultadoBackend.asignacion.camionAsignado}</p>
+              </div>
+              <div className="bg-surface-container-low p-3 rounded-lg">
+                <p className="text-[10px] font-label text-outline uppercase">Distancia GPS</p>
+                <p className="text-sm font-bold font-label">{resultadoBackend.asignacion.distanciaKm} km</p>
+              </div>
+            </div>
+            
+            <p className="text-xs text-on-surface-variant italic mt-2">
+              Datos guardados en Supabase. {resultadoBackend.asignacion.mensajeRuta}
+            </p>
           </div>
-          <div className="grid grid-cols-2 gap-4 mb-4">
-            <div className="bg-surface-container-low p-3 rounded-lg">
-              <p className="text-[10px] font-label text-outline uppercase">Peso Estimado</p>
-              <p className="text-md font-bold font-label">18.5kg</p>
-            </div>
-            <div className="bg-surface-container-low p-3 rounded-lg">
-              <p className="text-[10px] font-label text-outline uppercase">Confianza</p>
-              <p className="text-md font-bold font-label">94.2%</p>
-            </div>
-          </div>
-          <p className="text-sm text-on-surface-variant italic leading-relaxed">
-            "Se identifica acumulación crítica de polímeros. Se recomienda despacho inmediato de unidad compactadora tipo 4."
-          </p>
         </div>
-      </section>
-
-      <section className="space-y-3">
-        <div className="flex justify-between items-center px-1">
-          <h2 className="text-xs font-bold font-label uppercase tracking-widest text-outline">Mis últimos reportes</h2>
-          <a className="text-xs font-bold text-primary" href="#">Ver todo</a>
-        </div>
-        <div className="bg-surface-container-low rounded-xl overflow-hidden shadow-sm">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="bg-surface-container-high text-left">
-                <th className="px-4 py-3 font-label text-[10px] uppercase text-outline">Sector</th>
-                <th className="px-4 py-3 font-label text-[10px] uppercase text-outline">Estado</th>
-                <th className="px-4 py-3 font-label text-[10px] uppercase text-outline text-right">Fecha</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-outline-variant/10">
-              {[
-                { sector: 'La Condamine', status: 'RESUELTO', date: '12 Oct', color: 'bg-primary-fixed text-on-primary-fixed-variant' },
-                { sector: 'Veloz', status: 'EN PROCESO', date: '10 Oct', color: 'bg-tertiary-fixed text-on-tertiary-fixed-variant' },
-                { sector: 'Maldonado', status: 'RESUELTO', date: '08 Oct', color: 'bg-primary-fixed text-on-primary-fixed-variant' }
-              ].map((row, i) => (
-                <tr key={i} className="bg-white">
-                  <td className="px-4 py-3 font-medium">{row.sector}</td>
-                  <td className="px-4 py-3">
-                    <span className={`${row.color} text-[10px] font-bold px-1.5 py-0.5 rounded-sm`}>{row.status}</span>
-                  </td>
-                  <td className="px-4 py-3 text-right font-label text-xs text-outline">{row.date}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </section>
+      )}
+      
     </div>
   );
 };
