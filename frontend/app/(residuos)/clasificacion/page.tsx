@@ -16,26 +16,24 @@ export default function WasteClassificationPage() {
     description: "Este residuo es plástico PET, reciclable en contenedores amarillos."
   });
 
-  // Referencias al video y canvas
-  const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const imgRef = useRef<HTMLImageElement>(null);
 
-  // IP de la cámara IP Webcam
   const IP_CAM_URL = "http://172.25.221.29:8080/video";
 
   useEffect(() => {
     const interval = setInterval(() => {
-      if (videoRef.current && canvasRef.current) {
-        const ctx = canvasRef.current.getContext("2d");
-        if (!ctx) return;
+      if (!imgRef.current || !canvasRef.current) return;
 
-        // Dibuja el frame actual del video en el canvas
-        ctx.drawImage(videoRef.current, 0, 0, canvasRef.current.width, canvasRef.current.height);
+      const ctx = canvasRef.current.getContext("2d", { willReadFrequently: true });
+      if (!ctx) return;
 
-        // Extraer datos de la imagen (ImageData) si quieres procesarlos
-        const frame = ctx.getImageData(0, 0, canvasRef.current.width, canvasRef.current.height);
-        // frame.data → array RGBA que puedes enviar a tu modelo
-      }
+      // Dibuja la imagen actual en el canvas
+      ctx.drawImage(imgRef.current, 0, 0, canvasRef.current.width, canvasRef.current.height);
+
+      // Extrae los datos si quieres procesarlos
+      const frame = ctx.getImageData(0, 0, canvasRef.current.width, canvasRef.current.height);
+      // frame.data → array RGBA que puedes enviar a tu modelo
     }, 100); // ~10 FPS
 
     return () => clearInterval(interval);
@@ -43,22 +41,20 @@ export default function WasteClassificationPage() {
 
   return (
     <div className="p-4 md:p-8 flex flex-col gap-8 max-w-6xl mx-auto">
-      {/* Título */}
-      <h1 className="h1 text-center text-foreground">
-        Clasificación de Residuos
-      </h1>
+      <h1 className="h1 text-center text-foreground">Clasificación de Residuos</h1>
 
       <div className="flex flex-col md:flex-row gap-8">
         {/* Cámara IP */}
         <div className="md:w-1/2 h-64 md:h-[450px] bg-muted border-2 border-dashed border-border rounded-2xl flex items-center justify-center overflow-hidden">
-          <video
-            ref={videoRef}
+          {/* Imagen MJPEG de IP Webcam */}
+          <img
+            ref={imgRef}
             src={IP_CAM_URL}
-            autoPlay
-            muted
-            playsInline
+            alt="Cámara IP"
             className="hidden"
+            crossOrigin="anonymous"
           />
+          {/* Canvas donde se dibuja la imagen */}
           <canvas
             ref={canvasRef}
             width={640}
@@ -67,12 +63,10 @@ export default function WasteClassificationPage() {
           />
         </div>
 
-        {/* Sección de información (Card) */}
+        {/* Sección de información */}
         <Card className="md:w-1/2 border-border shadow-sm">
           <CardHeader className="border-b border-border/50 bg-muted/30">
-            <CardTitle className="h3 text-brand-1">
-              Detalle de Clasificación
-            </CardTitle>
+            <CardTitle className="h3 text-brand-1">Detalle de Clasificación</CardTitle>
           </CardHeader>
 
           <CardContent className="flex flex-col gap-6 pt-6">
@@ -98,9 +92,7 @@ export default function WasteClassificationPage() {
 
             <div className="p-4 bg-muted/50 rounded-xl border border-border">
               <p className="xs uppercase tracking-wider text-muted-foreground font-semibold mb-1">Recomendación</p>
-              <p className="body text-foreground italic">
-                "{result.description}"
-              </p>
+              <p className="body text-foreground italic">"{result.description}"</p>
             </div>
           </CardContent>
         </Card>
