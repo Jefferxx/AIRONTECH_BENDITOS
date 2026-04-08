@@ -20,33 +20,17 @@ export async function POST(request: Request) {
     // Limpiamos la imagen
     const base64Data = fotoBase64.replace(/^data:image\/(png|jpeg|jpg);base64,/, "");
 
-    // 1. GEMINI IA
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-    const prompt = `
-      Analiza esta imagen de basura. Eres una IA de gestión de residuos.
-      Devuelve ÚNICAMENTE un JSON válido con esta estructura exacta, sin markdown:
-      {
-        "tipo_residuo": "Plástico",
-        "peso_estimado_kg": 5.5,
-        "urgencia": "Alta",
-        "descripcion_ia": "Breve descripción",
-        "confianza_ia": 0.95
-      }
-    `;
-
-    const result = await model.generateContent([
-      prompt,
-      { inlineData: { data: base64Data, mimeType: "image/jpeg" } }
-    ]);
-
-    let iaText = result.response.text().trim();
-    if (iaText.startsWith('```')) {
-      iaText = iaText.replace(/^```json/, '').replace(/```$/, '').trim();
-    }
-    const aiData = JSON.parse(iaText);
+    const aiData = {
+      tipo_residuo: "Plásticos y Cartón",
+      peso_estimado_kg: 12.5,
+      urgencia: "Alta",
+      descripcion_ia: "Simulación de emergencia para demo",
+      confianza_ia: 0.98
+    };
 
     // 2. SUPABASE INSERT
     // Creamos un hash_zona falso rápido para cumplir tu regla NOT NULL de la BD
+    // 2. SUPABASE INSERT
     const hashZona = `Z-${Math.floor(Math.abs(latitud*1000))}-${Math.floor(Math.abs(longitud*1000))}`;
 
     const { error: dbError } = await supabase
@@ -61,7 +45,9 @@ export async function POST(request: Request) {
           hash_zona: hashZona,
           descripcion_ia: aiData.descripcion_ia || 'Detectado por IA',
           confianza_ia: aiData.confianza_ia || 0.9,
-          estado: 'pendiente'
+          estado: 'pendiente',
+          // 👇 ESTA ES LA LÍNEA QUE FALTA PARA QUE NO SALGA NULL 👇
+          imagen_url: fotoBase64 
       }]);
 
     if (dbError) throw new Error(dbError.message);
