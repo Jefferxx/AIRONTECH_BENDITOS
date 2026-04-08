@@ -78,7 +78,6 @@ const Button = ({
 // --- Views ---
 
 const LandingView = ({ onLogin }: { onLogin: (view: View) => void }) => {
-<<<<<<< Updated upstream
   // Estados para el formulario
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -104,60 +103,12 @@ const LandingView = ({ onLogin }: { onLogin: (view: View) => void }) => {
     } else {
       // ¡Éxito! Entramos a la vista de ciudadano por defecto
       onLogin('citizen');
-=======
-  // --- Estados para Auth ---
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [esRegistro, setEsRegistro] = useState(false);
-  const [cargando, setCargando] = useState(false);
-
-  // --- Conexión Supabase ---
-  const supabaseUrl = 'https://qwngrubkuakuuvhilvmi.supabase.co';
-  const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF3bmdydWJrdWFrdXV2aGlsdm1pIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NTY1ODUyMCwiZXhwIjoyMDkxMjM0NTIwfQ.RzEqPzl_W71IqKuIFa7Y1R7_1WmV_gPWGfomExqOZU4';
-  const supabase = createClient(supabaseUrl, supabaseKey);
-
-  // --- Función Principal de Autenticación ---
-  const manejarAuth = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setCargando(true);
-
-    try {
-      if (esRegistro) {
-        // 1. REGISTRO DE USUARIO NUEVO
-        const { data, error } = await supabase.auth.signUp({ email, password });
-        if (error) throw error;
-        
-        if (data.user) {
-          // Insertamos en tu tabla de perfiles (asegúrate de que la tabla exista)
-          await supabase.from('perfiles').insert([
-            { id: data.user.id, nombre: email.split('@')[0], rol: 'ciudadano' }
-          ]);
-        }
-        alert("✨ ¡Cuenta creada con éxito! Ya puedes ingresar.");
-        setEsRegistro(false);
-      } else {
-        // 2. INGRESO (LOGIN)
-        const { error } = await supabase.auth.signInWithPassword({ email, password });
-        if (error) throw error;
-        
-        alert("🚀 Ingreso exitoso. ¡Bienvenido!");
-        onLogin('citizen'); // Redirigimos al panel principal
-      }
-    } catch (error: any) {
-      alert("❌ Error: " + error.message);
-    } finally {
-      setCargando(false);
->>>>>>> Stashed changes
     }
   };
 
   return (
     <div className="min-h-screen flex flex-col md:flex-row">
-<<<<<<< Updated upstream
       {/* Left Column (Se mantiene igual) */}
-=======
-      {/* Columna Izquierda (Diseño) */}
->>>>>>> Stashed changes
       <section className="relative w-full md:w-3/5 min-h-[512px] md:min-h-screen flex items-center justify-center p-8 md:p-16 overflow-hidden">
         <div className="absolute inset-0 bg-primary/90 z-0" />
         <img 
@@ -202,11 +153,7 @@ const LandingView = ({ onLogin }: { onLogin: (view: View) => void }) => {
         </div>
       </section>
 
-<<<<<<< Updated upstream
       {/* Right Column (Formulario de Login Actualizado) */}
-=======
-      {/* Columna Derecha (Formulario Dinámico) */}
->>>>>>> Stashed changes
       <section className="w-full md:w-2/5 flex flex-col justify-center bg-surface-container-low px-8 py-16 md:px-16">
         <div className="max-w-md mx-auto w-full">
           <div className="mb-10">
@@ -217,7 +164,6 @@ const LandingView = ({ onLogin }: { onLogin: (view: View) => void }) => {
               {esRegistro ? 'Regístrate para ayudar a la ciudad.' : 'Ingresa a la plataforma municipal.'}
             </p>
           </div>
-<<<<<<< Updated upstream
           
           <form className="space-y-6 mb-12" onSubmit={handleLogin}>
             <div>
@@ -229,25 +175,11 @@ const LandingView = ({ onLogin }: { onLogin: (view: View) => void }) => {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
-=======
-
-          <form className="space-y-6 mb-12" onSubmit={manejarAuth}>
-            <div>
-              <label className="block font-label text-sm font-bold text-on-surface mb-2">Correo Electrónico</label>
-              <input 
-                className="w-full bg-surface-container-lowest border-none rounded-lg p-4 text-on-surface placeholder:text-outline shadow-sm focus:ring-2 focus:ring-primary outline-none" 
-                placeholder="ejemplo@riobamba.gob.ec" 
-                type="email"
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
->>>>>>> Stashed changes
               />
             </div>
             <div>
               <label className="block font-label text-sm font-bold text-on-surface mb-2">Contraseña</label>
               <input 
-<<<<<<< Updated upstream
                 className="w-full bg-surface-container-lowest border-none rounded-lg p-4 text-on-surface placeholder:text-outline shadow-sm focus:ring-2 focus:ring-primary" 
                 placeholder="••••••••" 
                 type="password" 
@@ -263,32 +195,6 @@ const LandingView = ({ onLogin }: { onLogin: (view: View) => void }) => {
             <Button className="w-full py-4 text-lg" onClick={() => {}}>
               {loading ? 'Verificando...' : 'Ingresar'}
             </Button>
-=======
-                className="w-full bg-surface-container-lowest border-none rounded-lg p-4 text-on-surface placeholder:text-outline shadow-sm focus:ring-2 focus:ring-primary outline-none" 
-                placeholder="••••••••" 
-                type="password" 
-                required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-              />
-            </div>
-
-            <Button className="w-full py-4 text-lg" disabled={cargando}>
-              {cargando ? 'Procesando...' : (esRegistro ? 'Registrarme' : 'Ingresar')}
-            </Button>
-
-            {/* Selector de Modo Login/Registro */}
-            <p className="text-center text-sm text-on-surface-variant">
-              {esRegistro ? '¿Ya tienes cuenta?' : '¿No tienes cuenta?'} 
-              <button 
-                type="button" 
-                onClick={() => setEsRegistro(!esRegistro)} 
-                className="ml-2 text-primary font-bold hover:underline"
-              >
-                {esRegistro ? 'Inicia Sesión' : 'Crea una aquí'}
-              </button>
-            </p>
->>>>>>> Stashed changes
           </form>
 
           {/* Acceso rápido para la demo (mantener los botones de bypass) */}
