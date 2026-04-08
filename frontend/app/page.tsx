@@ -359,50 +359,48 @@ const CitizenView = () => {
   }, []);
 
   // --- LA MAGIA: TOMAR FOTO + GPS + BACKEND ---
+  // --- DENTRO DE CitizenView EN page.tsx ---
   const enviarReporteBackend = async () => {
     if (!videoRef.current || !canvasRef.current) return alert("Cámara no lista");
-    
     setCargandoIA(true);
 
-    // 1. Capturamos la foto de la cámara en vivo
     const context = canvasRef.current.getContext('2d');
     canvasRef.current.width = videoRef.current.videoWidth;
     canvasRef.current.height = videoRef.current.videoHeight;
     context?.drawImage(videoRef.current, 0, 0);
-    // Comprimimos la foto al 30% de calidad para que no reviente el servidor
     const base64Capturado = canvasRef.current.toDataURL('image/jpeg', 0.3);
-    setFotoBase64(base64Capturado); // Mostramos la foto congelada
+    setFotoBase64(base64Capturado);
 
-    // 2. Sacamos GPS y mandamos al Backend
     navigator.geolocation.getCurrentPosition(async (position) => {
       try {
         const respuesta = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_CLASIFICACION}/api/reportes/`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            fotoBase64: base64Capturado,
-            latitud: position.coords.latitude,
-            longitud: position.coords.longitude,
-            calle: sector
+            image_b64: base64Capturado, // Cambiado
+            lat: position.coords.latitude, // Cambiado
+            lng: position.coords.longitude, // Cambiado
+            sector: sector, // Cambiado
+            es_contenedor_lleno: false, // Nuevo obligatorio
+            accuracy_gps: position.coords.accuracy || 0 // Nuevo obligatorio
           })
         });
 
         const data = await respuesta.json();
 
-        if (data.success) {
-           setResultadoBackend(data); // Mostramos la tarjeta de éxito
+        if (respuesta.ok) { // Verificación más robusta
+           setResultadoBackend(data);
            setDescripcion('');
-           setEstaLleno(false);
         } else {
-           alert("❌ Error del servidor: " + data.error);
+           alert("❌ Error: " + (data.detail || "Error desconocido"));
         }
       } catch (error) {
-        alert("❌ Error de red al contactar al servidor.");
+        alert("❌ Error de red.");
       } finally {
         setCargandoIA(false);
       }
     }, (error) => {
-      alert("⚠️ Activa el GPS para reportar.");
+      alert("⚠️ Activa el GPS.");
       setCargandoIA(false);
     }, { enableHighAccuracy: true });
   };
@@ -471,22 +469,22 @@ const CitizenView = () => {
           <div className="space-y-3">
             <div className="flex justify-between items-center">
               <span className="text-xs font-label text-outline uppercase">IA Detectó:</span>
-              <span className="text-lg font-headline font-bold text-gray-800">{resultadoBackend.analisisIA}</span>
+              <span className="text-lg font-headline font-bold text-gray-800">{resultadoBackend.tipo_residuo}</span>
             </div>
             
             <div className="grid grid-cols-2 gap-4 mt-2">
               <div className="bg-surface-container-low p-3 rounded-lg">
                 <p className="text-[10px] font-label text-outline uppercase">Camión Asignado</p>
-                <p className="text-sm font-bold font-label text-primary">{resultadoBackend.asignacion.camionAsignado}</p>
+                <p className="text-sm font-bold font-label text-primary">{resultadoBackend.sector} — {resultadoBackend.urgencia}</p>
               </div>
               <div className="bg-surface-container-low p-3 rounded-lg">
                 <p className="text-[10px] font-label text-outline uppercase">Distancia GPS</p>
-                <p className="text-sm font-bold font-label">{resultadoBackend.asignacion.distanciaKm} km</p>
+                <p className="text-sm font-bold font-label">{resultadoBackend.peso_estimado_kg} kg</p>
               </div>
             </div>
             
             <p className="text-xs text-on-surface-variant italic mt-2">
-              Datos guardados en Supabase. {resultadoBackend.asignacion.mensajeRuta}
+              {resultadoBackend.descripcion_ia}
             </p>
           </div>
         </div>
@@ -504,9 +502,7 @@ const WorkerView = () => {
   useEffect(() => {
     const cargarTareas = async () => {
       try {
-        const supabaseUrl = 'https://qwngrubkuakuuvhilvmi.supabase.co';
-        const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF3bmdydWJrdWFrdXV2aGlsdm1pIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NTY1ODUyMCwiZXhwIjoyMDkxMjM0NTIwfQ.RzEqPzl_W71IqKuIFa7Y1R7_1WmV_gPWGfomExqOZU4';
-        const supabase = createClient(supabaseUrl, supabaseKey);
+        const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!);
 
         // Traemos todos los reportes ordenados por los más recientes
         const { data, error } = await supabase
